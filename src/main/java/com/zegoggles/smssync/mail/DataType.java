@@ -4,7 +4,9 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.preference.PreferenceManager;
+
 import com.zegoggles.smssync.R;
+import com.zegoggles.smssync.preferences.Preferences;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -81,7 +83,10 @@ public enum DataType {
      * @return returns the last synced date in msecs (epoch)
      */
     public long getMaxSyncedDate(Context context) {
-        long maxSynced = prefs(context).getLong(maxSyncedPreference, Defaults.MAX_SYNCED_DATE);
+        Preferences preferences = new Preferences(context);
+        SharedPreferences prefs = prefs(context);
+        long defMaxSynced = preferences.getBackupSinceAsDate().getTime() / (this == MMS ? 1000 : 1);
+        long maxSynced = prefs.getLong(maxSyncedPreference, defMaxSynced);
         if (this == MMS && maxSynced > 0) {
             return maxSynced * 1000L;
         } else {

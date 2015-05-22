@@ -24,10 +24,15 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.preference.PreferenceManager;
 import android.util.Log;
+
 import com.zegoggles.smssync.contacts.ContactGroup;
 import com.zegoggles.smssync.mail.DataType;
 import com.zegoggles.smssync.preferences.MarkAsReadTypes;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.Locale;
 
 import static com.zegoggles.smssync.App.TAG;
@@ -36,6 +41,7 @@ import static com.zegoggles.smssync.preferences.Preferences.Keys.*;
 public class Preferences {
     private final Context context;
     private final SharedPreferences preferences;
+    private SimpleDateFormat sdf = new SimpleDateFormat("dd-MMM-yyyy");
 
     public Preferences(Context context) {
         this.context = context.getApplicationContext();
@@ -47,6 +53,7 @@ public class Preferences {
         INCOMING_TIMEOUT_SECONDS("auto_backup_incoming_schedule"),
         REGULAR_TIMEOUT_SECONDS ("auto_backup_schedule"),
         MAX_ITEMS_PER_SYNC("max_items_per_sync"),
+        BACKUP_SINCE_DATE("backup_since_date"),
         MAX_ITEMS_PER_RESTORE ("max_items_per_restore"),
         CALLLOG_SYNC_CALENDAR ("backup_calllog_sync_calendar"),
         CALLLOG_SYNC_CALENDAR_ENABLED ("backup_calllog_sync_calendar_enabled"),
@@ -123,6 +130,35 @@ public class Preferences {
 
     public int getMaxItemsPerSync() {
         return getStringAsInt(MAX_ITEMS_PER_SYNC, Defaults.MAX_ITEMS_PER_SYNC);
+    }
+
+    public String getBackupSinceDate() {
+        // NOTE: This gets called from DataType.getMaxSyncedDate() even before preferences are initialized, so need to repeat the default value.
+        return preferences.getString(BACKUP_SINCE_DATE.key, "01-Jan-1970");
+    }
+
+    public void setBackupSinceDate(String dateStr) {
+        // FIXME: This causes: "D/StrictMode( 3665): StrictMode policy violation; ~duration=1 ms: android.os.StrictMode$StrictModeDiskWriteViolation: policy=2069 violation=1"
+        preferences.edit()
+                .putString(BACKUP_SINCE_DATE.key, dateStr)
+                .commit();
+    }
+
+    public Date getBackupSinceAsDate() {
+        String dateStr = getBackupSinceDate();
+        Date d;
+        try {
+            d = sdf.parse(dateStr);
+        } catch (ParseException e) {
+            Log.e("mainActivity", "Unexpected date parse error", e);
+            d = new Date();
+        }
+        return d;
+    }
+
+    public void setBackupSinceAsDate(Date date) {
+        String dateStr = sdf.format(date);
+        this.setBackupSinceDate(dateStr);
     }
 
     public int getMaxItemsPerRestore() {

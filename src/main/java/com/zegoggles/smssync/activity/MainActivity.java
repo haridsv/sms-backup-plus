@@ -18,6 +18,7 @@ package com.zegoggles.smssync.activity;
 
 import android.annotation.TargetApi;
 import android.app.AlertDialog;
+import android.app.DatePickerDialog;
 import android.app.Dialog;
 import android.app.ProgressDialog;
 import android.content.ComponentName;
@@ -25,6 +26,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.SharedPreferences.Editor;
 import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.Uri;
@@ -46,7 +48,9 @@ import android.view.MenuItem;
 import android.view.View;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.DatePicker;
 import android.widget.TextView;
+
 import com.squareup.otto.Subscribe;
 import com.zegoggles.smssync.App;
 import com.zegoggles.smssync.BuildConfig;
@@ -73,10 +77,12 @@ import com.zegoggles.smssync.tasks.OAuthCallbackTask;
 import com.zegoggles.smssync.tasks.RequestTokenTask;
 import com.zegoggles.smssync.utils.AppLog;
 import com.zegoggles.smssync.utils.ListPreferenceHelper;
+
 import org.jetbrains.annotations.Nullable;
 
 import java.text.DateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -89,7 +95,7 @@ import static com.zegoggles.smssync.preferences.Preferences.Keys.*;
  * This is the main activity showing the status of the SMS Sync service and
  * providing controls to configure it.
  */
-public class MainActivity extends PreferenceActivity {
+public class MainActivity extends PreferenceActivity  implements DatePickerDialog.OnDateSetListener {
     public static final int MIN_VERSION_MMS = Build.VERSION_CODES.ECLAIR;
     public static final int MIN_VERSION_BACKUP = Build.VERSION_CODES.FROYO;
 
@@ -111,6 +117,8 @@ public class MainActivity extends PreferenceActivity {
     @Override
     public void onCreate(Bundle bundle) {
         super.onCreate(bundle);
+        PreferenceManager.setDefaultValues(this, R.xml.preferences, false);
+
         authPreferences = new AuthPreferences(this);
         preferences = new Preferences(this);
         addPreferencesFromResource(R.xml.preferences);
@@ -141,6 +149,29 @@ public class MainActivity extends PreferenceActivity {
 
         setupStrictMode();
         App.bus.register(this);
+
+        Preference backup_since_date = (Preference) findPreference(Preferences.Keys.BACKUP_SINCE_DATE.key);
+        backup_since_date.setSummary(preferences.getBackupSinceDate());
+        backup_since_date.setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
+            @TargetApi(Build.VERSION_CODES.HONEYCOMB)
+            @Override
+            public boolean onPreferenceClick(Preference preference) {
+                showDateDialog();
+                return false;
+            }
+        });
+    }
+
+    @Override
+    public void onDateSet(DatePicker datePicker, int year, int month, int day) {
+        Editor prefs = PreferenceManager.getDefaultSharedPreferences(this).edit();
+        Calendar c = Calendar.getInstance();
+        c.set(Calendar.YEAR, year);
+        c.set(Calendar.MONTH, month);
+        c.set(Calendar.DAY_OF_MONTH, day);
+        preferences.setBackupSinceAsDate(c.getTime());
+        // FIXME: Not sure if this should go as title or summary, I saw it done both ways.
+        findPreference("backup_since_date").setSummary(preferences.getBackupSinceDate());
     }
 
     @Override
@@ -976,5 +1007,12 @@ public class MainActivity extends PreferenceActivity {
         if (isSmsBackupDefaultSmsApp() && !SmsRestoreService.isServiceWorking()) {
             restoreDefaultSmsProvider(preferences.getSmsDefaultPackage());
         }
+    }
+
+    private void showDateDialog(){
+        Date d = preferences.getBackupSinceAsDate();
+        final Calendar c = Calendar.getInstance();
+        c.setTime(d);
+        new DatePickerDialog(this,this, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show();
     }
 }
